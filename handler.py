@@ -2,7 +2,7 @@
 BigTooth - Flux 2 Klein Image Stylization Handler for RunPod Serverless
 
 This handler transforms photos into various cartoon styles using FLUX.2 Klein 4B.
-Supports: Pixar, Disney, Anime, Ghibli styles via prompt-based image editing.
+Supports: Pixar, Disney, Anime, Ghibli styles via image-to-image editing.
 
 Model: black-forest-labs/FLUX.2-klein-4B (Apache 2.0 license)
 Requires: diffusers from git (dev version with Flux2KleinPipeline support)
@@ -51,6 +51,12 @@ def load_model():
         pipe.enable_attention_slicing()
 
     print(f"Model loaded successfully! Pipeline type: {type(pipe)}")
+
+    # Log available parameters
+    import inspect
+    sig = inspect.signature(pipe.__call__)
+    print(f"Available pipeline parameters: {list(sig.parameters.keys())}")
+
     return pipe
 
 # Style prompt templates - matching Wavespeed format
@@ -113,8 +119,10 @@ def handler(job):
         model = load_model()
 
         # Download source image
-        print(f"Downloading image from: {image_url[:50]}...")
+        print(f"Downloading image from: {image_url[:80]}...")
         source_image = download_image(image_url)
+        original_size = source_image.size
+        print(f"Original image size: {original_size}")
 
         # Resize to 512x512 to match Wavespeed output
         source_image = source_image.resize((512, 512), Image.Resampling.LANCZOS)
@@ -122,28 +130,53 @@ def handler(job):
         # Get style prompt
         prompt = STYLE_PROMPTS.get(style, STYLE_PROMPTS["pixar"])
 
-        # Set random seed if specified
-        generator = None
-        if seed >= 0:
-            generator = torch.Generator(device="cuda").manual_seed(seed)
-        else:
-            # Use random seed
-            import random
+        # Set random seed
+        import random
+        if seed < 0:
             seed = random.randint(0, 2**32 - 1)
-            generator = torch.Generator(device="cuda").manual_seed(seed)
+        generator = torch.Generator(device="cuda").manual_seed(seed)
 
         print(f"Generating {style} style image with prompt: {prompt}")
 
-        # Generate styled image - FLUX.2 Klein is text-to-image, not img2img
-        # For stylization, we describe what we want based on the input style
-        result = model(
-            prompt=prompt,
-            num_inference_steps=num_inference_steps,
-            guidance_scale=guidance_scale,
-            generator=generator,
-            height=512,
-            width=512
-        ).images[0]
+        # Try image-to-image with input_images parameter (Flux2KleinPipeline style)
+        # The pipeline accepts input_images as a list of PIL Images for reference
+        try:
+            result = model(
+                prompt=prompt,
+                input_images=[source_image],  # Pass as reference image
+                num_inference_steps=num_inference_steps,
+                guidance_scale=guidance_scale,
+                generator=generator,
+                height=512,
+                width=512
+            ).images[0]
+            print("Used img2img with input_images parameter")
+        except TypeError as e:
+            # Fallback: try with 'image' parameter (standard img2img)
+            print(f"input_images not supported, trying 'image' parameter: {e}")
+            try:
+                result = model(
+                    prompt=prompt,
+                    image=source_image,
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                    generator=generator,
+                    height=512,
+                    width=512
+                ).images[0]
+                print("Used img2img with image parameter")
+            except TypeError as e2:
+                # Final fallback: text-to-image only
+                print(f"image parameter not supported, using text-to-image only: {e2}")
+                result = model(
+                    prompt=prompt,
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                    generator=generator,
+                    height=512,
+                    width=512
+                ).images[0]
+                print("Used text-to-image (no input image)")
 
         # Convert to base64
         result_base64 = image_to_base64(result)
