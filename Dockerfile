@@ -2,7 +2,7 @@
 # Transforms photos into Pixar/Disney/Anime/Ghibli styles
 # Model: black-forest-labs/FLUX.2-klein-4B (Apache 2.0 license)
 
-FROM runpod/pytorch:2.1.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
