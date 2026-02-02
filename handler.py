@@ -59,13 +59,14 @@ def load_model():
 
     return pipe
 
-# Style prompt templates - close-up portrait focus
-STYLE_PROMPTS = {
-    "pixar": "Transform into Pixar 3D animation style, close-up portrait, face fills the frame, cinematic lighting",
-    "disney": "Transform into Disney 2D animation style, close-up portrait, face fills the frame, expressive features",
-    "anime": "Transform into anime style, close-up portrait, face fills the frame, detailed eyes",
-    "ghibli": "Transform into Studio Ghibli watercolor style, close-up portrait, face fills the frame, soft lighting",
-    "cartoon": "Transform into cartoon style, close-up portrait, face fills the frame, bold lines"
+# Default style prompts - simple style transfer without composition changes
+# These are fallbacks if no custom prompt is provided
+DEFAULT_STYLE_PROMPTS = {
+    "pixar": "Transform this image into Pixar 3D animation style",
+    "disney": "Transform this image into Disney 2D animation style",
+    "anime": "Transform this image into anime style",
+    "ghibli": "Transform this image into Studio Ghibli watercolor style",
+    "cartoon": "Transform this image into cartoon style"
 }
 
 def download_image(url: str) -> Image.Image:
@@ -103,7 +104,8 @@ def handler(job):
         "input": {
             "image_url": "https://...",   # URL of image to transform (OR use image_base64)
             "image_base64": "...",        # Base64 encoded image (alternative to URL)
-            "style": "pixar",             # Style: pixar, disney, anime, ghibli, cartoon
+            "prompt": "...",              # Custom prompt (optional - overrides style)
+            "style": "pixar",             # Style: pixar, disney, anime, ghibli, cartoon (fallback if no prompt)
             "num_inference_steps": 4,     # Steps (default 4 for Klein - it's fast)
             "guidance_scale": 3.5,        # Guidance scale (default 3.5)
             "seed": -1                    # Random seed (-1 for random)
@@ -114,6 +116,7 @@ def handler(job):
     {
         "image_base64": "...",           # Base64 encoded result image
         "style_used": "pixar",
+        "prompt_used": "...",            # The actual prompt that was used
         "success": true
     }
     """
@@ -123,6 +126,7 @@ def handler(job):
         # Extract parameters
         image_url = job_input.get("image_url")
         image_base64_input = job_input.get("image_base64")
+        custom_prompt = job_input.get("prompt")  # Custom prompt takes priority
         style = job_input.get("style", "pixar").lower()
         num_inference_steps = job_input.get("num_inference_steps", 4)
         guidance_scale = job_input.get("guidance_scale", 3.5)
@@ -148,8 +152,13 @@ def handler(job):
         # Resize to 512x512 to match Wavespeed output
         source_image = source_image.resize((512, 512), Image.Resampling.LANCZOS)
 
-        # Get style prompt
-        prompt = STYLE_PROMPTS.get(style, STYLE_PROMPTS["pixar"])
+        # Get prompt - custom prompt takes priority over style-based prompt
+        if custom_prompt:
+            prompt = custom_prompt
+            print(f"Using custom prompt: {prompt[:80]}...")
+        else:
+            prompt = DEFAULT_STYLE_PROMPTS.get(style, DEFAULT_STYLE_PROMPTS["pixar"])
+            print(f"Using default {style} prompt: {prompt}")
 
         # Set random seed
         import random
@@ -207,6 +216,7 @@ def handler(job):
         return {
             "image_base64": result_base64,
             "style_used": style,
+            "prompt_used": prompt,
             "seed_used": seed,
             "success": True
         }
