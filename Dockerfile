@@ -14,7 +14,10 @@ WORKDIR /app
 # Install dependencies
 # IMPORTANT: diffusers must be installed from git (dev version) for FLUX.2 Klein support
 # The model requires Flux2KleinPipeline which is only in diffusers >= 0.37.0.dev0
+# PyTorch 2.5+ required for enable_gqa in scaled_dot_product_attention
 RUN pip install --upgrade pip && \
+    pip install --no-cache-dir \
+    torch==2.5.1 torchvision --index-url https://download.pytorch.org/whl/cu124 && \
     pip install --no-cache-dir \
     git+https://github.com/huggingface/diffusers.git \
     transformers>=4.44.0 \
