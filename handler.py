@@ -27,19 +27,21 @@ def load_model():
     print("Loading FLUX.2 Klein 4B model...")
 
     # Import here to avoid issues at module load time
-    from diffusers import FluxPipeline
+    from diffusers import DiffusionPipeline
 
-    # Load the full model
-    pipe = FluxPipeline.from_pretrained(
+    # Load using DiffusionPipeline.from_pretrained which auto-detects the correct pipeline
+    pipe = DiffusionPipeline.from_pretrained(
         "black-forest-labs/FLUX.2-klein-4B",
-        torch_dtype=torch.bfloat16
+        torch_dtype=torch.bfloat16,
+        trust_remote_code=True
     )
     pipe = pipe.to("cuda")
 
-    # Enable memory optimizations
-    pipe.enable_attention_slicing()
+    # Enable memory optimizations if available
+    if hasattr(pipe, 'enable_attention_slicing'):
+        pipe.enable_attention_slicing()
 
-    print("Model loaded successfully!")
+    print(f"Model loaded successfully! Pipeline type: {type(pipe)}")
     return pipe
 
 # Style prompt templates - matching Wavespeed format
@@ -72,8 +74,7 @@ def handler(job):
         "input": {
             "image_url": "https://...",  # URL of image to transform
             "style": "pixar",             # Style: pixar, disney, anime, ghibli, cartoon
-            "strength": 0.75,             # How much to transform (0.0-1.0, default 0.75)
-            "num_inference_steps": 28,    # Steps (default 28 for Klein)
+            "num_inference_steps": 4,     # Steps (default 4 for Klein - it's fast)
             "guidance_scale": 3.5,        # Guidance scale (default 3.5)
             "seed": -1                    # Random seed (-1 for random)
         }
@@ -92,8 +93,7 @@ def handler(job):
         # Extract parameters
         image_url = job_input.get("image_url")
         style = job_input.get("style", "pixar").lower()
-        strength = job_input.get("strength", 0.75)
-        num_inference_steps = job_input.get("num_inference_steps", 28)
+        num_inference_steps = job_input.get("num_inference_steps", 4)
         guidance_scale = job_input.get("guidance_scale", 3.5)
         seed = job_input.get("seed", -1)
 
@@ -125,11 +125,10 @@ def handler(job):
 
         print(f"Generating {style} style image with prompt: {prompt}")
 
-        # Generate styled image
+        # Generate styled image - FLUX.2 Klein is text-to-image, not img2img
+        # For stylization, we describe what we want based on the input style
         result = model(
             prompt=prompt,
-            image=source_image,
-            strength=strength,
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
             generator=generator,
