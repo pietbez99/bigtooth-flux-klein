@@ -2,7 +2,7 @@
 # Transforms photos into Pixar/Disney/Anime/Ghibli styles
 # Model: black-forest-labs/FLUX.2-klein-4B (Apache 2.0 license)
 
-FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -10,8 +10,9 @@ ENV HF_HOME=/root/.cache/huggingface
 
 WORKDIR /app
 
-# Install dependencies
-RUN pip install --no-cache-dir \
+# Install compatible versions
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir \
     diffusers>=0.31.0 \
     transformers>=4.44.0 \
     accelerate>=0.33.0 \

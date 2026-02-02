@@ -13,23 +13,23 @@ import requests
 import base64
 import io
 from PIL import Image
-from diffusers import FluxPriorReduxPipeline, FluxPipeline
 
-# Global model references (loaded once at startup)
+# Global model reference (loaded once at startup)
 pipe = None
-pipe_prior = None
 
 def load_model():
     """Load FLUX.2 Klein 4B model into GPU memory."""
-    global pipe, pipe_prior
+    global pipe
 
     if pipe is not None:
-        return pipe, pipe_prior
+        return pipe
 
     print("Loading FLUX.2 Klein 4B model...")
 
+    # Import here to avoid issues at module load time
+    from diffusers import FluxPipeline
+
     # Load the main pipeline for image-to-image editing
-    # FLUX.2 Klein supports unified generation and editing
     pipe = FluxPipeline.from_pretrained(
         "black-forest-labs/FLUX.2-klein-4B",
         torch_dtype=torch.bfloat16
@@ -39,20 +39,8 @@ def load_model():
     # Enable memory optimizations
     pipe.enable_attention_slicing()
 
-    # Try to load the prior redux for image conditioning (if available)
-    try:
-        pipe_prior = FluxPriorReduxPipeline.from_pretrained(
-            "black-forest-labs/FLUX.2-klein-4B",
-            torch_dtype=torch.bfloat16
-        )
-        pipe_prior = pipe_prior.to("cuda")
-        print("Prior redux pipeline loaded for image conditioning")
-    except Exception as e:
-        print(f"Prior redux not available, using standard img2img: {e}")
-        pipe_prior = None
-
     print("Model loaded successfully!")
-    return pipe, pipe_prior
+    return pipe
 
 # Style prompt templates - matching Wavespeed format
 STYLE_PROMPTS = {
@@ -113,7 +101,7 @@ def handler(job):
             return {"error": "image_url is required", "success": False}
 
         # Load model (cached after first call)
-        model, prior = load_model()
+        model = load_model()
 
         # Download source image
         print(f"Downloading image from: {image_url[:50]}...")
@@ -170,9 +158,6 @@ def handler(job):
             "success": False
         }
 
-# Load model at startup (keeps it in memory for fast inference)
+# Start RunPod serverless handler (don't load model at startup to reduce cold start issues)
 print("Initializing FLUX.2 Klein stylization endpoint...")
-load_model()
-
-# Start RunPod serverless handler
 runpod.serverless.start({"handler": handler})
