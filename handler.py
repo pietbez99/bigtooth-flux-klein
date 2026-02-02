@@ -1,10 +1,11 @@
 """
 BigTooth - Flux 2 Klein Image Stylization Handler for RunPod Serverless
 
-This handler transforms photos into various cartoon styles using FLUX.2 Klein 4B.
+This handler transforms photos into various cartoon styles using FLUX.2 Klein 4B (FP8).
 Supports: Pixar, Disney, Anime, Ghibli styles via prompt-based image editing.
 
-Model: black-forest-labs/FLUX.2-klein-4B (Apache 2.0 license)
+Model: black-forest-labs/FLUX.2-klein-4b-fp8 (Apache 2.0 license)
+Using FP8 quantized version for reduced disk/memory usage.
 """
 
 import runpod
@@ -18,20 +19,20 @@ from PIL import Image
 pipe = None
 
 def load_model():
-    """Load FLUX.2 Klein 4B model into GPU memory."""
+    """Load FLUX.2 Klein 4B FP8 model into GPU memory."""
     global pipe
 
     if pipe is not None:
         return pipe
 
-    print("Loading FLUX.2 Klein 4B model...")
+    print("Loading FLUX.2 Klein 4B FP8 model...")
 
     # Import here to avoid issues at module load time
     from diffusers import FluxPipeline
 
-    # Load the main pipeline for image-to-image editing
+    # Load the FP8 quantized version (smaller, faster)
     pipe = FluxPipeline.from_pretrained(
-        "black-forest-labs/FLUX.2-klein-4B",
+        "black-forest-labs/FLUX.2-klein-4b-fp8",
         torch_dtype=torch.bfloat16
     )
     pipe = pipe.to("cuda")
@@ -158,6 +159,6 @@ def handler(job):
             "success": False
         }
 
-# Start RunPod serverless handler (don't load model at startup to reduce cold start issues)
-print("Initializing FLUX.2 Klein stylization endpoint...")
+# Start RunPod serverless handler
+print("Initializing FLUX.2 Klein FP8 stylization endpoint...")
 runpod.serverless.start({"handler": handler})
