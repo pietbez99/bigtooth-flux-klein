@@ -13,7 +13,7 @@ import torch
 import requests
 import base64
 import io
-from PIL import Image
+from PIL import Image, ImageOps
 
 # Global model reference (loaded once at startup)
 pipe = None
@@ -72,7 +72,10 @@ def download_image(url: str) -> Image.Image:
     """Download image from URL and return as PIL Image."""
     response = requests.get(url, timeout=30)
     response.raise_for_status()
-    return Image.open(io.BytesIO(response.content)).convert("RGB")
+    image = Image.open(io.BytesIO(response.content))
+    # Apply EXIF orientation to fix rotated images (common from phone cameras)
+    image = ImageOps.exif_transpose(image)
+    return image.convert("RGB")
 
 def image_to_base64(image: Image.Image, format: str = "JPEG") -> str:
     """Convert PIL Image to base64 string."""
@@ -86,7 +89,10 @@ def base64_to_image(b64_string: str) -> Image.Image:
     if ',' in b64_string:
         b64_string = b64_string.split(',')[1]
     image_data = base64.b64decode(b64_string)
-    return Image.open(io.BytesIO(image_data)).convert("RGB")
+    image = Image.open(io.BytesIO(image_data))
+    # Apply EXIF orientation to fix rotated images (common from phone cameras)
+    image = ImageOps.exif_transpose(image)
+    return image.convert("RGB")
 
 def handler(job):
     """
