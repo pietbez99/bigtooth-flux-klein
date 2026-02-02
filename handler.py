@@ -5,6 +5,7 @@ This handler transforms photos into various cartoon styles using FLUX.2 Klein 4B
 Supports: Pixar, Disney, Anime, Ghibli styles via prompt-based image editing.
 
 Model: black-forest-labs/FLUX.2-klein-4B (Apache 2.0 license)
+Requires: diffusers from git (dev version with Flux2KleinPipeline support)
 """
 
 import runpod
@@ -25,15 +26,23 @@ def load_model():
         return pipe
 
     print("Loading FLUX.2 Klein 4B model...")
+    print(f"PyTorch version: {torch.__version__}")
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"CUDA device: {torch.cuda.get_device_name(0)}")
 
-    # Import here to avoid issues at module load time
+    # Import diffusers (must be dev version with Flux2KleinPipeline)
+    import diffusers
+    print(f"Diffusers version: {diffusers.__version__}")
+
+    # FLUX.2 Klein uses a custom pipeline class (Flux2KleinPipeline)
+    # DiffusionPipeline.from_pretrained with trust_remote_code should auto-detect it
     from diffusers import DiffusionPipeline
 
-    # Load using DiffusionPipeline.from_pretrained which auto-detects the correct pipeline
     pipe = DiffusionPipeline.from_pretrained(
         "black-forest-labs/FLUX.2-klein-4B",
         torch_dtype=torch.bfloat16,
-        trust_remote_code=True
+        trust_remote_code=True  # Required for custom pipeline/components
     )
     pipe = pipe.to("cuda")
 

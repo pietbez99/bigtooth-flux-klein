@@ -1,6 +1,7 @@
 # BigTooth - FLUX.2 Klein Stylization RunPod Endpoint
 # Transforms photos into Pixar/Disney/Anime/Ghibli styles
 # Model: black-forest-labs/FLUX.2-klein-4B (Apache 2.0 license)
+# Requires diffusers dev version for Flux2KleinPipeline support
 
 FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
@@ -10,10 +11,12 @@ ENV HF_HOME=/root/.cache/huggingface
 
 WORKDIR /app
 
-# Install compatible versions
+# Install dependencies
+# IMPORTANT: diffusers must be installed from git (dev version) for FLUX.2 Klein support
+# The model requires Flux2KleinPipeline which is only in diffusers >= 0.37.0.dev0
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir \
-    diffusers>=0.31.0 \
+    git+https://github.com/huggingface/diffusers.git \
     transformers>=4.44.0 \
     accelerate>=0.33.0 \
     safetensors>=0.4.0 \
