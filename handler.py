@@ -80,6 +80,14 @@ def image_to_base64(image: Image.Image, format: str = "JPEG") -> str:
     image.save(buffer, format=format, quality=90)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
+def base64_to_image(b64_string: str) -> Image.Image:
+    """Convert base64 string to PIL Image."""
+    # Handle data URI format (data:image/jpeg;base64,...)
+    if ',' in b64_string:
+        b64_string = b64_string.split(',')[1]
+    image_data = base64.b64decode(b64_string)
+    return Image.open(io.BytesIO(image_data)).convert("RGB")
+
 def handler(job):
     """
     RunPod handler function for image stylization.
@@ -87,7 +95,8 @@ def handler(job):
     Input:
     {
         "input": {
-            "image_url": "https://...",  # URL of image to transform
+            "image_url": "https://...",   # URL of image to transform (OR use image_base64)
+            "image_base64": "...",        # Base64 encoded image (alternative to URL)
             "style": "pixar",             # Style: pixar, disney, anime, ghibli, cartoon
             "num_inference_steps": 4,     # Steps (default 4 for Klein - it's fast)
             "guidance_scale": 3.5,        # Guidance scale (default 3.5)
@@ -107,20 +116,26 @@ def handler(job):
 
         # Extract parameters
         image_url = job_input.get("image_url")
+        image_base64_input = job_input.get("image_base64")
         style = job_input.get("style", "pixar").lower()
         num_inference_steps = job_input.get("num_inference_steps", 4)
         guidance_scale = job_input.get("guidance_scale", 3.5)
         seed = job_input.get("seed", -1)
 
-        if not image_url:
-            return {"error": "image_url is required", "success": False}
+        if not image_url and not image_base64_input:
+            return {"error": "image_url or image_base64 is required", "success": False}
 
         # Load model (cached after first call)
         model = load_model()
 
-        # Download source image
-        print(f"Downloading image from: {image_url[:80]}...")
-        source_image = download_image(image_url)
+        # Get source image from URL or base64
+        if image_base64_input:
+            print("Loading image from base64 input...")
+            source_image = base64_to_image(image_base64_input)
+        else:
+            print(f"Downloading image from: {image_url[:80]}...")
+            source_image = download_image(image_url)
+
         original_size = source_image.size
         print(f"Original image size: {original_size}")
 
