@@ -59,13 +59,13 @@ def load_model():
 
     return pipe
 
-# Style prompt templates - matching Wavespeed format
+# Style prompt templates - close-up portrait focus
 STYLE_PROMPTS = {
-    "pixar": "Turn this image into pixar style. crop to point of interest",
-    "disney": "Turn this image into 2D disney style. crop to point of interest",
-    "anime": "Turn this image into anime style. crop to point of interest",
-    "ghibli": "Turn this image into ghibli style. crop to point of interest",
-    "cartoon": "Turn this image into cartoon style. crop to point of interest"
+    "pixar": "Transform into Pixar 3D animation style, close-up portrait, face fills the frame, cinematic lighting",
+    "disney": "Transform into Disney 2D animation style, close-up portrait, face fills the frame, expressive features",
+    "anime": "Transform into anime style, close-up portrait, face fills the frame, detailed eyes",
+    "ghibli": "Transform into Studio Ghibli watercolor style, close-up portrait, face fills the frame, soft lighting",
+    "cartoon": "Transform into cartoon style, close-up portrait, face fills the frame, bold lines"
 }
 
 def download_image(url: str) -> Image.Image:
