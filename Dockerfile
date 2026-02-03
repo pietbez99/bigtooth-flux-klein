@@ -26,7 +26,8 @@ RUN pip install --upgrade pip && \
     sentencepiece>=0.1.99 \
     pillow>=10.0.0 \
     requests>=2.31.0 \
-    runpod>=1.6.0
+    runpod>=1.6.0 \
+    mediapipe>=0.10.0
 
 # Copy handler
 COPY handler.py /app/handler.py
