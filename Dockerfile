@@ -27,7 +27,7 @@ RUN pip install --upgrade pip && \
     pillow>=10.0.0 \
     requests>=2.31.0 \
     runpod>=1.6.0 \
-    mediapipe>=0.10.0
+    opencv-python-headless>=4.8.0
 
 # Copy handler
 COPY handler.py /app/handler.py

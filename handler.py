@@ -25,22 +25,41 @@ pipe = None
 face_detector = None
 
 def load_face_detector():
-    """Load MediaPipe face detector."""
+    """Load face detector using OpenCV's DNN module with a pre-trained model."""
     global face_detector
 
     if face_detector is not None:
         return face_detector
 
-    print("Loading MediaPipe face detector...")
-    import mediapipe as mp
+    print("Loading OpenCV DNN face detector...")
+    import cv2
+    import urllib.request
+    import os
 
-    # Use MediaPipe Face Detection (fast, GPU accelerated)
-    mp_face_detection = mp.solutions.face_detection
-    face_detector = mp_face_detection.FaceDetection(
-        model_selection=1,  # 1 = full range model (better for various distances)
-        min_detection_confidence=0.5
-    )
+    # Use OpenCV's DNN face detector (works reliably, no external dependencies)
+    # Download the model files if not present
+    model_dir = "/tmp/face_models"
+    os.makedirs(model_dir, exist_ok=True)
 
+    prototxt_path = os.path.join(model_dir, "deploy.prototxt")
+    model_path = os.path.join(model_dir, "res10_300x300_ssd_iter_140000.caffemodel")
+
+    # Download model files if needed
+    if not os.path.exists(prototxt_path):
+        print("Downloading face detection prototxt...")
+        urllib.request.urlretrieve(
+            "https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt",
+            prototxt_path
+        )
+
+    if not os.path.exists(model_path):
+        print("Downloading face detection model...")
+        urllib.request.urlretrieve(
+            "https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel",
+            model_path
+        )
+
+    face_detector = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
     print("Face detector loaded successfully!")
     return face_detector
 
@@ -58,40 +77,53 @@ def detect_and_crop_face(image: Image.Image, margin_percent: float = 0.3) -> tup
         - If no face: returns original image and False
     """
     import numpy as np
+    import cv2
 
     detector = load_face_detector()
 
-    # Convert PIL to RGB numpy array for MediaPipe
+    # Convert PIL to BGR numpy array for OpenCV
     img_array = np.array(image)
+    img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
 
-    # Detect faces
-    results = detector.process(img_array)
+    img_height, img_width = img_bgr.shape[:2]
 
-    if not results.detections or len(results.detections) == 0:
+    # Prepare image for DNN (resize to 300x300, normalize)
+    blob = cv2.dnn.blobFromImage(img_bgr, 1.0, (300, 300), (104.0, 177.0, 123.0))
+    detector.setInput(blob)
+    detections = detector.forward()
+
+    # Find the detection with highest confidence
+    best_detection = None
+    best_confidence = 0.5  # Minimum confidence threshold
+
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+        if confidence > best_confidence:
+            best_confidence = confidence
+            best_detection = detections[0, 0, i, 3:7]
+
+    if best_detection is None:
         print("No face detected - using original image")
         return image, False
 
-    # Get the first (most confident) face
-    detection = results.detections[0]
-    bbox = detection.location_data.relative_bounding_box
+    # Convert normalized coordinates to pixel coordinates
+    x1 = int(best_detection[0] * img_width)
+    y1 = int(best_detection[1] * img_height)
+    x2 = int(best_detection[2] * img_width)
+    y2 = int(best_detection[3] * img_height)
 
-    img_width, img_height = image.size
-
-    # Convert relative coordinates to absolute pixels
-    x = int(bbox.xmin * img_width)
-    y = int(bbox.ymin * img_height)
-    w = int(bbox.width * img_width)
-    h = int(bbox.height * img_height)
+    w = x2 - x1
+    h = y2 - y1
 
     # Add margin around face
     margin_x = int(w * margin_percent)
     margin_y = int(h * margin_percent)
 
     # Calculate crop box with margin, clamped to image bounds
-    left = max(0, x - margin_x)
-    top = max(0, y - margin_y)
-    right = min(img_width, x + w + margin_x)
-    bottom = min(img_height, y + h + margin_y)
+    left = max(0, x1 - margin_x)
+    top = max(0, y1 - margin_y)
+    right = min(img_width, x2 + margin_x)
+    bottom = min(img_height, y2 + margin_y)
 
     # Make it square (take the larger dimension)
     crop_width = right - left
@@ -111,7 +143,7 @@ def detect_and_crop_face(image: Image.Image, margin_percent: float = 0.3) -> tup
     # Crop to face
     cropped = image.crop((left, top, right, bottom))
 
-    print(f"Face detected at ({x}, {y}, {w}, {h}) - cropped to ({left}, {top}, {right}, {bottom})")
+    print(f"Face detected (conf={best_confidence:.2f}) at ({x1}, {y1}, {x2}, {y2}) - cropped to ({left}, {top}, {right}, {bottom})")
 
     return cropped, True
 
