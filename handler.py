@@ -103,8 +103,17 @@ def detect_and_crop_face(image: Image.Image, margin_percent: float = 0.3) -> tup
             best_detection = detections[0, 0, i, 3:7]
 
     if best_detection is None:
-        print("No face detected - using original image")
-        return image, False
+        print("No face detected - will use center-cropped image as fallback")
+        # Fallback: center-crop to square for consistent output
+        width, height = image.size
+        min_dim = min(width, height)
+        left = (width - min_dim) // 2
+        top = (height - min_dim) // 2
+        right = left + min_dim
+        bottom = top + min_dim
+        center_cropped = image.crop((left, top, right, bottom))
+        print(f"Center-cropped to {center_cropped.size}")
+        return center_cropped, False
 
     # Convert normalized coordinates to pixel coordinates
     x1 = int(best_detection[0] * img_width)
